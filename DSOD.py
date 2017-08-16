@@ -2,7 +2,7 @@ import torch
 
 import torch.nn as nn
 
-import torch.nn.function as F
+import torch.nn.functional as F
 
 import math
 
@@ -32,9 +32,9 @@ class StemLayer(nn.Module):
 		self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=3, stride=stride, padding=1, bias=False)
 		self.bn1 = nn.BatchNorm2d(nOutChannels)
 
-		def forward(self, x):
-			out = F.relu(self.bn1(self.conv1(x)))
-			return out
+	def forward(self, x):
+		out = F.relu(self.bn1(self.conv1(x)))
+		return out
 
 class SingleLayer(nn.Module):
 	def __init__(self, nChannels, nOutChannels, kernel_size, stride, padding, dropout=0):
@@ -42,11 +42,11 @@ class SingleLayer(nn.Module):
 		self.bn1 = nn.BatchNorm2d(nChannels)
 		self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
 
-		def forward(self, x):
-			out = self.conv1(F.relu(self.bn1(x)))
-			if dropout > 0:
-				out = F.dropout2d(out, dropout)
-			return out
+	def forward(self, x):
+		out = self.conv1(F.relu(self.bn1(x)))
+		# if dropout > 0:
+		# 		out = F.dropout2d(out, dropout)
+		return out
 
 class SingleLayer2(nn.Module):
 	def __init__(self, nChannels, nOutChannels):
@@ -58,23 +58,41 @@ class SingleLayer2(nn.Module):
 		self.bn3 = nn.BatchNorm2d(nChannels)
 		self.conv3 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1, stride=1, padding=0, bias=False)
 
-		def forward(self, x):
-			out1 = self.conv1(F.relu(self.bn1(x)))
-			out1 = self.conv2(F.relu(self.bn2(out1)))
-			out2 = F.max_pool2d(x, kernel_size=2, stride=2)
-			out2 = self.conv3(F.relu(self.bn3(out2)))
-			out = torch.cat((out1, out2), 1)
-			return out
+	def forward(self, x):
+		out1 = self.conv1(F.relu(self.bn1(x)))
+		out1 = self.conv2(F.relu(self.bn2(out1)))
+		out2 = F.max_pool2d(x, kernel_size=2, stride=2, ceil_mode=True)
+		out2 = self.conv3(F.relu(self.bn3(out2)))
+		out = torch.cat((out1, out2), 1)
+		return out
+
+class LastLayer(nn.Module):
+	def __init__(self, nChannels, nOutChannels):
+		super(SingleLayer2, self).__init__()
+		self.bn1 = nn.BatchNorm2d(nChannels)
+		self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1, stride=1, padding=0, bias=False)
+		self.bn2 = nn.BatchNorm2d(nOutChannels)
+		self.conv2 = nn.Conv2d(nOutChannels, nOutChannels, kernel_size=3, stride=2, padding=0, bias=False)
+		self.bn3 = nn.BatchNorm2d(nChannels)
+		self.conv3 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1, stride=1, padding=0, bias=False)
+
+	def forward(self, x):
+		out1 = self.conv1(F.relu(self.bn1(x)))
+		out1 = self.conv2(F.relu(self.bn2(out1)))
+		out2 = F.max_pool2d(x, kernel_size=2, stride=2)
+		out2 = self.conv3(F.relu(self.bn3(out2)))
+		out = torch.cat((out1, out2), 1)
+		return out
 
 class Bottleneck(nn.Module):
-	def __init__(self, nChannels. growthRate):
+	def __init__(self, nChannels, growthRate):
 		super(Bottleneck, self).__init__()
 
 		interChannels = 4*growthRate
 		self.bn1 = nn.BatchNorm2d(nChannels)
 		self.conv1 = nn.Conv2d(nChannels, interChannels, kernel_size=1, bias=False)
 		self.bn2 = nn.BatchNorm2d(interChannels)
-		self.conv2 = nn.Conv2d(interChannels, growthRate. kernel_size=3, padding=1, bias=False)
+		self.conv2 = nn.Conv2d(interChannels, growthRate, kernel_size=3, padding=1, bias=False)
 
 	def forward(self, x):
 		out = self.conv1(F.relu(self.bn1(x)))
@@ -90,7 +108,7 @@ class Transition(nn.Module):
 
 	def forward(self, x):
 		out = self.conv1(F.relu(self.bn1(x)))
-		out = F.max_pool2d(out, kernel_size=2, stride=2)
+		out = F.max_pool2d(out, kernel_size=2, stride=2, ceil_mode=True)
 		return out
 
 # class Transition3x3(nn.Module):
@@ -104,8 +122,8 @@ class Transition(nn.Module):
 # 		return out
 
 class Transition_w_o_pooling(nn.Module):
-	def __inti__(self, nChannels, nOutChannels):
-		super(Transition_w_o_pooling).__init__()
+	def __init__(self, nChannels, nOutChannels):
+		super(Transition_w_o_pooling, self).__init__()
 		self.bn1 = nn.BatchNorm2d(nChannels)
 		self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1, bias=False)
 
@@ -131,7 +149,7 @@ class DSOD(nn.Module):
 		self.dense2 = self._make_dense(nChannels, growthRate, 8)
 		nChannels += 8*growthRate
 		nOutChannels1 = int(math.floor(nChannels*reduction))
-		self.trans_wo = Transition_w_o_pooling(nChannels, nOutChannels)
+		self.trans_wo = Transition_w_o_pooling(nChannels, nOutChannels1)
 		# self.trans2 = Transition(nChannels, nOutChannels)
 		# self.First = self.trans_wo
 
@@ -156,19 +174,20 @@ class DSOD(nn.Module):
 
 		# addExtraLyers
 		nChannels = nOutChannels*2
-		self.third = self.SingleLayer2(nChannels, 256)
+		self.third = SingleLayer2(nChannels, 256)
 		nChannels = 256*2
-		self.forth = self.SingleLayer2(nChannels, 128)
+		self.forth = SingleLayer2(nChannels, 128)
 		nChannels = 128*2
-		self.fifith = self.SingleLayer2(nChannels, 128)
+		self.fifith = SingleLayer2(nChannels, 128)
 		nChannels = 128*2
-		self.sixth = self.SingleLayer2(nChannels, 128)
+		# self.sixth = SingleLayer2(nChannels, 128)
+		self.sixth = LastLayer(nChannels, 128)
 
 		# multibox layer
 		self.multibox = MultiBoxLayer()
 
 	def _make_dense(self, nChannels, growthRate, nDenseBlocks):
-		layer = []
+		layers = []
 		for i in range(int(nDenseBlocks)):
 			layers.append(Bottleneck(nChannels, growthRate))
 			nChannels += growthRate
@@ -176,7 +195,7 @@ class DSOD(nn.Module):
 
 
 	def forward(self, x):
-		Out = []
+		Out = []	
 		out = self.conv1(x)
 		out = self.conv2(out)
 		out = self.conv3(out)
@@ -197,7 +216,7 @@ class DSOD(nn.Module):
 		Second = out
 		Out.append(Second)
 
-		Third = self.thrid(Second)
+		Third = self.third(Second)
 		Out.append(Third)
 		Forth = self.forth(Third)
 		Out.append(Forth)

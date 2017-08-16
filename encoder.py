@@ -10,9 +10,11 @@ class DataEncoder:
         '''Compute default box sizes with scale and aspect transform.'''
         scale = 300.
         # steps = [s / scale for s in (8, 16, 32, 64, 100, 300)]
-        # sizes = [s / scale for s in (30, 60, 111, 162, 213, 264, 315)]
-        aspect_ratios = ((2,), (2,3), (2,3), (2,3), (2,), (2,))
         feature_map_sizes = (38, 19, 10, 5, 3, 1)
+        steps = [float(1) / s for s in feature_map_sizes]
+        sizes = [s / scale for s in (30, 60, 111, 162, 213, 264, 315)]
+        aspect_ratios = ((2,), (2,3), (2,3), (2,3), (2,), (2,))
+        # feature_map_sizes = (38, 19, 10, 5, 3, 1)
 
         num_layers = len(feature_map_sizes)
 
