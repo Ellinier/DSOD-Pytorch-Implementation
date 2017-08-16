@@ -27,6 +27,7 @@ import visdom
 import make_graph
 viz = visdom.Visdom()
 use_cuda = torch.cuda.is_available()
+criterion = MultiBoxLoss()
 
 # import shutil
 # import setproctitle
@@ -113,7 +114,7 @@ def main():
 	elif args.opt == 'rmsprop':
 		optimizer = optim.RMSprop(net.parameters(), weight_decay=args.wd)
 
-	criterion = MultiBoxLoss()
+	# criterion = MultiBoxLoss()
 
 	if use_cuda:
 		net.cuda()
