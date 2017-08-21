@@ -25,8 +25,13 @@ from config import cfg
 
 import visdom
 import make_graph
+<<<<<<< HEAD
 viz = visdom.Visdom()
 use_cuda = torch.cuda.is_available()
+=======
+# viz = visdom.Visdom()
+# use_cuda = torch.cuda.is_available()
+>>>>>>> 3ec299bb8506decc223eb6d7d9579860b1a29c01
 
 # import shutil
 # import setproctitle
@@ -161,7 +166,11 @@ def main():
 
 	for epoch in range(start_epoch, start_epoch+args.nEpochs+1):
 		adjust_opt(args.opt, optimizer, epoch)
+<<<<<<< HEAD
 		train(epoch, net, trainLoader, optimizer, criterion)
+=======
+		train(epoch, net, trainLoader, optimizer, criterion, viz)
+>>>>>>> 3ec299bb8506decc223eb6d7d9579860b1a29c01
 		test(epoch, net, testLoader, optimizer)
 
 		if epoch%10 == 0:
@@ -180,7 +189,11 @@ def main():
 	# testF.close()
 
 
+<<<<<<< HEAD
 def train(epoch, net, trainLoader, optimizer, criterion):
+=======
+def train(epoch, net, trainLoader, optimizer, criterion, viz):
+>>>>>>> 3ec299bb8506decc223eb6d7d9579860b1a29c01
 	print('\n==> Training Epoch %4d' % epoch)
 	net.train()
 	train_loss = 0
