@@ -105,8 +105,10 @@ class DataEncoder:
         best_truth_iou, best_truth_idx = iou.max(0)
         best_truth_idx.squeeze_(0)
         best_truth_iou.squeeze_(0)
-        best_prior_idx.squeeze_(1)
-        best_prior_iou.squeeze_(1)
+        # print(best_prior_idx.size())
+        # print(best_truth_iou.size())
+        best_prior_idx.squeeze_(-1)
+        best_prior_iou.squeeze_(-1)
         best_truth_iou.index_fill_(0, best_prior_idx, 2)
 
         for j in range(best_prior_idx.size(0)):

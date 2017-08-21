@@ -27,10 +27,15 @@ class MultiBoxLoss(nn.Module):
         Return:
           (tensor) cross entroy loss, sized [N,].
         '''
+        # print(x.size()) # [8732, 16]
         xmax = x.data.max()
-        # print(x.data.size())
+        # print(x.data.size()) # [8732, 16]
+        # print(xmax.size()) # max--float object
         log_sum_exp = torch.log(torch.sum(torch.exp(x-xmax), 1)) + xmax
-        return log_sum_exp - x.gather(1, y.view(-1,1))
+        # print(log_sum_exp.size()) # [8732,]
+        # print(x.gather(1, y.view(-1,1)).size()) # [8732, 1]
+        # print((log_sum_exp.view(-1, 1) - x.gather(1, y.view(-1,1))).size())
+        return log_sum_exp.view(-1, 1) - x.gather(1, y.view(-1,1))
 
     def test_cross_entropy_loss(self):
         a = Variable(torch.randn(10,4))
@@ -50,6 +55,8 @@ class MultiBoxLoss(nn.Module):
           (tensor) negative indices, sized [N,8732].
         '''
         batch_size, num_boxes = pos.size()
+        # print(pos)
+        # print(conf_loss.size())
 
         conf_loss[pos] = 0  # set pos boxes = 0, the rest are neg conf_loss
         conf_loss = conf_loss.view(batch_size, -1)  # [N,8732]
@@ -78,6 +85,7 @@ class MultiBoxLoss(nn.Module):
         batch_size, num_boxes, _ = loc_preds.size()
 
         pos = conf_targets>0  # [N,8732], pos means the box matched.
+        # print(pos.size())
         num_matched_boxes = pos.data.long().sum()
         if num_matched_boxes == 0:
             return Variable(torch.Tensor([0])), Variable(torch.Tensor([0]))
@@ -87,6 +95,7 @@ class MultiBoxLoss(nn.Module):
         ################################################################
         pos_mask = pos.unsqueeze(2).expand_as(loc_preds)    # [N,8732,4]
         pos_loc_preds = loc_preds[pos_mask].view(-1,4)      # [#pos,4]
+        # print(pos_loc_preds.size())
         pos_loc_targets = loc_targets[pos_mask].view(-1,4)  # [#pos,4]
         loc_loss = F.smooth_l1_loss(pos_loc_preds, pos_loc_targets, size_average=False)
 
@@ -94,11 +103,16 @@ class MultiBoxLoss(nn.Module):
         # conf_loss = CrossEntropyLoss(pos_conf_preds, pos_conf_targets)
         #           + CrossEntropyLoss(neg_conf_preds, neg_conf_targets)
         ################################################################
+        # print('1',conf_preds.size()) # [N, 8732, 16]
+        # print('2',conf_targets.size()) # [N, 8732]
         conf_loss = self.cross_entropy_loss(conf_preds.view(-1,self.num_classes), \
                                             conf_targets.view(-1))  # [N*8732,]
+        # print(conf_loss.size()) # [8732, 8732]
         neg = self.hard_negative_mining(conf_loss, pos)    # [N,8732]
 
         pos_mask = pos.unsqueeze(2).expand_as(conf_preds)  # [N,8732,21]
+        # print(conf_preds.size()) # [N, 8732, 16]
+        # print(neg.size()) # [N, 8732*8732]
         neg_mask = neg.unsqueeze(2).expand_as(conf_preds)  # [N,8732,21]
         mask = (pos_mask+neg_mask).gt(0)
 

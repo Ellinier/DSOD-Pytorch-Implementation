@@ -68,7 +68,7 @@ class SingleLayer2(nn.Module):
 
 class LastLayer(nn.Module):
 	def __init__(self, nChannels, nOutChannels):
-		super(SingleLayer2, self).__init__()
+		super(LastLayer, self).__init__()
 		self.bn1 = nn.BatchNorm2d(nChannels)
 		self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1, stride=1, padding=0, bias=False)
 		self.bn2 = nn.BatchNorm2d(nOutChannels)

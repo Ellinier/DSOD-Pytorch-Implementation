@@ -25,9 +25,8 @@ from config import cfg
 
 import visdom
 import make_graph
-viz = visdom.Visdom()
-use_cuda = torch.cuda.is_available()
-criterion = MultiBoxLoss()
+# viz = visdom.Visdom()
+# use_cuda = torch.cuda.is_available()
 
 # import shutil
 # import setproctitle
@@ -114,15 +113,15 @@ def main():
 	elif args.opt == 'rmsprop':
 		optimizer = optim.RMSprop(net.parameters(), weight_decay=args.wd)
 
-	# criterion = MultiBoxLoss()
+	criterion = MultiBoxLoss()
 
 	if use_cuda:
 		net.cuda()
 		cudnn.benchmark = True
 
 	if args.visdom:
-		# import visdom
-		# viz = visdom.Visdom()
+		import visdom
+		viz = visdom.Visdom()
 		training_plot = viz.line(
 			X=torch.zeros((1,)).cpu(),
 			Y=torch.zeros((1, 3)).cpu(),
@@ -162,7 +161,7 @@ def main():
 
 	for epoch in range(start_epoch, start_epoch+args.nEpochs+1):
 		adjust_opt(args.opt, optimizer, epoch)
-		train(epoch, net, trainLoader, optimizer)
+		train(epoch, net, trainLoader, optimizer, criterion, viz)
 		test(epoch, net, testLoader, optimizer)
 
 		if epoch%10 == 0:
@@ -181,7 +180,7 @@ def main():
 	# testF.close()
 
 
-def train(epoch, net, trainLoader, optimizer):
+def train(epoch, net, trainLoader, optimizer, criterion, viz):
 	print('\n==> Training Epoch %4d' % epoch)
 	net.train()
 	train_loss = 0
@@ -200,9 +199,14 @@ def train(epoch, net, trainLoader, optimizer):
 
 		optimizer.zero_grad()
 		loc_preds, conf_preds = net(images)
+		# print(loc_targets.size())
+		# print(conf_targets.size())
 		loc_loss, conf_loss = criterion(loc_preds, loc_targets, conf_preds, conf_targets)
 		loss = loc_loss + conf_loss
-		make_graph.save('/home/share/dataset/graph.dot', loss.creator)
+		# g = make_graph.make_dot(loss)
+		# g.save('/home/ellin/Downloads/graph.dot')
+		# g.view()
+		# make_graph.save('/home/ellin/Downloads/graph.dot', loss.creator)
 		loss.backward()
 		optimizer.step()
 
@@ -220,7 +224,7 @@ def train(epoch, net, trainLoader, optimizer):
 			update='append'
 			)
 
-def test(epoch, net, testLoader, optimizer):
+def test(epoch, net, testLoader, optimizer, criterion):
 	print('Testing')
 	net.eval()
 	test_loss = 0

@@ -74,7 +74,7 @@ cfg.supplement100_images = '/home/share/dataset/supplement100/JPEGImages/'
 cfg.list_file_train_supplement100 = './label_list/supplement100_train.txt'
 cfg.list_file_test_supplement100 = './label_list/supplement100_test.txt'
 
-cfg.supplement100_images = '/home/ellin/Downloads/supplement/JPEGImages/'
+cfg.supplement100_images = '/home/ellin/Downloads/supplement100/JPEGImages/'
 cfg.list_file_train_supplement100 = './label_list/supplement100_train.txt'
 cfg.list_file_test_supplement100 = './label_list/supplement100_test.txt'
 
