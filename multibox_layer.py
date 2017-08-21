@@ -8,8 +8,8 @@ import torch.nn as nn
 from config import cfg
 
 class MultiBoxLayer(nn.Module):
-	def __inti__(self):
-		super(MultiBoxLayer, self).__inti__()
+	def __init__(self):
+		super(MultiBoxLayer, self).__init__()
 
 		self.num_classes = len(cfg.CLASSES) + 1
 		self.num_anchors = [4,6,6,6,4,4]

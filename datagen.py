@@ -12,6 +12,7 @@ import numpy as np
 import random
 
 import torch
+import torch.utils.data as data
 import torchvision.transforms as transforms
 
 from encoder import DataEncoder
@@ -21,7 +22,7 @@ import cv2
 
 class ListDataset(data.Dataset):
 
-	def __init__(self, root, list_file, train):
+    def __init__(self, root, list_file, train, transform):
         '''
         Args:
           root: (str) ditectory to images.
@@ -38,15 +39,17 @@ class ListDataset(data.Dataset):
 
         self.data_encoder = DataEncoder()
 
-        normMean = [0.485, 0.456, 0.406]
-        normStd = [0.229, 0.224, 0.225]
-        normTransform = transforms.Normalize(normMean, normStd)
+        self.transform = transform
 
-        self.transform = transforms.Compose([
-        	transforms.Scale((300, 300)),
-        	transforms.ToTensor(),
-        	normTransform
-        	])
+        # normMean = [0.485, 0.456, 0.406]
+        # normStd = [0.229, 0.224, 0.225]
+        # normTransform = transforms.Normalize(normMean, normStd)
+
+        # self.transform = transforms.Compose([
+        # 	transforms.Scale((300, 300)),
+        # 	transforms.ToTensor(),
+        # 	normTransform
+        # 	])
 
         with open(list_file) as f:
         	lines = f.readlines()
@@ -102,18 +105,21 @@ class ListDataset(data.Dataset):
         loc_target, conf_target = self.data_encoder.encode(boxes, labels)
         return img, loc_target, conf_target
 
+    def __len__(self):
+        return self.num_samples
+
     def data_augmentation(self, img, boxes, labels):
     	img, boxes = self.random_flip(img, boxes)
     	img, boxes, labels = self.random_zoom(img, boxes, labels)
     	img = self.pil_to_cv(img)
     	img = self.random_contrast(img)
-    	img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    	img = self.random_hue(img)
-    	img = self.random_saturation(img)
-    	img = self.random_brightness(img)
-    	img = cv2.cvtColor(img, cv2.COLOR_HSV3BGR)
+    	# img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    	# img = self.random_hue(img)
+    	# img = self.random_saturation(img)
+    	# img = self.random_brightness(img)
+    	# img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
     	img = self.random_color_channels(img)
-    	img = self.cv2_to_pil(img)
+    	img = self.cv_to_pil(img)
     	return img, boxes, labels
 
     def random_flip(self, img, boxes):
@@ -207,7 +213,7 @@ class ListDataset(data.Dataset):
     	return cv_image.astype(np.float32)
 
     def cv_to_pil(self, cv_image):
-    	pil_image = Image.fromarray(cv.cvtColor(cv_image.astype(np.uint8), cv2.COLOR_BGR2RGB))
+    	pil_image = Image.fromarray(cv2.cvtColor(cv_image.astype(np.uint8), cv2.COLOR_BGR2RGB))
     	return pil_image
 
     def random_hue(self, hsv_image, delta=18.0):

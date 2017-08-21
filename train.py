@@ -3,11 +3,12 @@ from __future__ import print_function
 import os
 import argparse
 import numpy as np
-import ramdom
+import random
 from PIL import Image
 
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
@@ -22,22 +23,27 @@ from encoder import DataEncoder
 from visualize_det import visualize_det
 from config import cfg
 
+import visdom
+import make_graph
+viz = visdom.Visdom()
+use_cuda = torch.cuda.is_available()
+
 # import shutil
 # import setproctitle
 
 def main():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--batchSz', type=int, default=32, help='batch size')
+	parser.add_argument('--batchSz', type=int, default=1, help='batch size')
 	parser.add_argument('--nEpochs', type=int, default=300, help='number of epoch to end training')
 	parser.add_argument('--lr', type=float, default=1e-5, help='learning rate')
 	parser.add_argument('--momentum', type=float, default=0.9)
 	parser.add_argument('--wd', type=float, default=5e-4, help='weight decay')
 	# parser.add_argument('--save')
 	# parser.add_argument('--seed', type=int, default=1)
-	parser.add_argument('--opt', type=str, default='sgd', choice=('sgd', 'adam', 'rmsprop'))
-	parser.add_argument('--resume', '-r', action='store_ture', help='resume from checkpoint')
+	parser.add_argument('--opt', type=str, default='sgd', choices=('sgd', 'adam', 'rmsprop'))
+	parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 	parser.add_argument('--resume_from', type=int, default=220, help='resume from which checkpoint')
-	parser.add_argument('--visdom', '-v', action='store_ture', help='use visdom for training visualization')
+	parser.add_argument('--visdom', '-v', action='store_true', help='use visdom for training visualization')
 	args = parser.parse_args()
 
 	# args.save = args.save or 'work/DSOS.base'
@@ -46,7 +52,7 @@ def main():
 	# 	shutil.rmtree(args.save)
 	# os.makedirs(args.save, exist_ok=True)
 
-	use_cuda = torch.cuda.is_available()
+	# use_cuda = torch.cuda.is_available()
 	best_loss = float('inf') # best test loss
 	start_epoch = 0 # start from epoch 0 for last epoch
 
@@ -61,7 +67,7 @@ def main():
 		])
 
 	testTransform = transforms.Compose([
-		transform.Scale((300, 300)),
+		transforms.Scale((300, 300)),
 		transforms.ToTensor(),
 		normTransform
 		])
@@ -78,7 +84,7 @@ def main():
 		                    shuffle=False, **kwargs)
  
 	# Model
-	net = DSOD.DSOD(growthRate=48, reduction=1)
+	net = DSOD(growthRate=48, reduction=1)
 	if args.resume:
 		print('==> Resuming from checkpoint...')
 		checkpoint = torch.load('./checkpoint/ckpt_{:03d}.pth'.format(args.resume_from))
@@ -91,7 +97,7 @@ def main():
 		def init_weights(m):
 			if isinstance(m, nn.Conv2d):
 				init.xavier_uniform(m.weight.data)
-				m.bias.data.zero_()
+				# m.bias.data.zero_()
 		net.apply(init_weights)
 
 	print(' + Number of params: {}'.format(
@@ -114,8 +120,8 @@ def main():
 		cudnn.benchmark = True
 
 	if args.visdom:
-		import visdom
-		viz = visdom.Visdom()
+		# import visdom
+		# viz = visdom.Visdom()
 		training_plot = viz.line(
 			X=torch.zeros((1,)).cpu(),
 			Y=torch.zeros((1, 3)).cpu(),
@@ -147,7 +153,7 @@ def main():
 		data_encoder = DataEncoder()
 
 		testing_image = viz.image(np.ones((3, 300, 300)),
-			                      opt=dict(caption='Random Testing Image'))
+			                      opts=dict(caption='Random Testing Image'))
 
 	# TODO: save training data on log file
 	# trainF = open(os.path.join(args.save, 'train.csv'), 'w')
@@ -155,7 +161,7 @@ def main():
 
 	for epoch in range(start_epoch, start_epoch+args.nEpochs+1):
 		adjust_opt(args.opt, optimizer, epoch)
-		train(epoch, net, trainLoader, optimizer)
+		train(epoch, net, trainLoader, optimizer, criterion)
 		test(epoch, net, testLoader, optimizer)
 
 		if epoch%10 == 0:
@@ -174,7 +180,7 @@ def main():
 	# testF.close()
 
 
-def train(epoch, net, trainLoader, optimizer):
+def train(epoch, net, trainLoader, optimizer, criterion):
 	print('\n==> Training Epoch %4d' % epoch)
 	net.train()
 	train_loss = 0
@@ -193,8 +199,14 @@ def train(epoch, net, trainLoader, optimizer):
 
 		optimizer.zero_grad()
 		loc_preds, conf_preds = net(images)
+		# print(loc_targets.size())
+		# print(conf_targets.size())
 		loc_loss, conf_loss = criterion(loc_preds, loc_targets, conf_preds, conf_targets)
 		loss = loc_loss + conf_loss
+		# g = make_graph.make_dot(loss)
+		# g.save('/home/ellin/Downloads/graph.dot')
+		# g.view()
+		# make_graph.save('/home/ellin/Downloads/graph.dot', loss.creator)
 		loss.backward()
 		optimizer.step()
 
@@ -212,7 +224,7 @@ def train(epoch, net, trainLoader, optimizer):
 			update='append'
 			)
 
-def test(epoch, net, testLoader, optimizer):
+def test(epoch, net, testLoader, optimizer, criterion):
 	print('Testing')
 	net.eval()
 	test_loss = 0
@@ -273,15 +285,15 @@ def adjust_opt(optAlg, optimizer, epoch):
 	if optAlg == 'sgd':
 		if epoch < 150:
 			lr = 1e-1
-	    elif epoch == 150:
-	    	lr = 1e-2
-	    elif epoch == 225:
-	    	lr = 1e-3
-	    else:
-	    	return
+		elif epoch == 150:
+			lr = 1e-2
+		elif epoch == 225:
+			lr = 1e-3
+		else:
+			return
 
-	    for param_group in optimizer.param_groups:
-	    	param_group['lr'] = lr
+		for param_group in optimizer.param_groups:
+			param_group['lr'] = lr
 
 if __name__ == '__main__':
 	main()
