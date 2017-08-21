@@ -67,7 +67,7 @@ class MultiBoxLoss(nn.Module):
         num_pos = pos.long().sum(1)  # [N,1]
         num_neg = torch.clamp(3*num_pos, max=num_boxes-1)  # [N,1]
 
-        neg = rank < num_neg.expand_as(rank)  # [N,8732]
+        neg = rank < num_neg.view(-1, 1).expand_as(rank)  # [N,8732]
         return neg
 
     def forward(self, loc_preds, loc_targets, conf_preds, conf_targets):
@@ -108,6 +108,7 @@ class MultiBoxLoss(nn.Module):
         conf_loss = self.cross_entropy_loss(conf_preds.view(-1,self.num_classes), \
                                             conf_targets.view(-1))  # [N*8732,]
         # print(conf_loss.size()) # [8732, 8732]
+        conf_loss = conf_loss.view(-1, 8732)
         neg = self.hard_negative_mining(conf_loss, pos)    # [N,8732]
 
         pos_mask = pos.unsqueeze(2).expand_as(conf_preds)  # [N,8732,21]

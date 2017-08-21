@@ -23,15 +23,10 @@ from encoder import DataEncoder
 from visualize_det import visualize_det
 from config import cfg
 
-import visdom
+# import visdom
 import make_graph
-# <<<<<<< HEAD
-viz = visdom.Visdom()
-use_cuda = torch.cuda.is_available()
-# =======
 # viz = visdom.Visdom()
 # use_cuda = torch.cuda.is_available()
-# >>>>>>> 3ec299bb8506decc223eb6d7d9579860b1a29c01
 
 # import shutil
 # import setproctitle
@@ -57,7 +52,7 @@ def main():
 	# 	shutil.rmtree(args.save)
 	# os.makedirs(args.save, exist_ok=True)
 
-	# use_cuda = torch.cuda.is_available()
+	use_cuda = torch.cuda.is_available()
 	best_loss = float('inf') # best test loss
 	start_epoch = 0 # start from epoch 0 for last epoch
 
@@ -125,8 +120,8 @@ def main():
 		cudnn.benchmark = True
 
 	if args.visdom:
-		# import visdom
-		# viz = visdom.Visdom()
+		import visdom
+		viz = visdom.Visdom()
 		training_plot = viz.line(
 			X=torch.zeros((1,)).cpu(),
 			Y=torch.zeros((1, 3)).cpu(),
@@ -156,8 +151,8 @@ def main():
 		transform_viz = testTransform
 
 		data_encoder = DataEncoder()
-
-		testing_image = viz.image(np.ones((3, 300, 300)),
+		if args.visdom:
+			testing_image = viz.image(np.ones((3, 300, 300)),
 			                      opts=dict(caption='Random Testing Image'))
 
 	# TODO: save training data on log file
@@ -166,12 +161,8 @@ def main():
 
 	for epoch in range(start_epoch, start_epoch+args.nEpochs+1):
 		adjust_opt(args.opt, optimizer, epoch)
-# <<<<<<< HEAD
-		train(epoch, net, trainLoader, optimizer, criterion)
-# =======
-		# train(epoch, net, trainLoader, optimizer, criterion, viz)
-# >>>>>>> 3ec299bb8506decc223eb6d7d9579860b1a29c01
-		test(epoch, net, testLoader, optimizer)
+		train(epoch, net, trainLoader, optimizer, criterion, use_cuda, args.visdom, viz=None)
+		test(epoch, net, testLoader, optimizer, criterion, use_cuda, args.visdom, viz=None)
 
 		if epoch%10 == 0:
 			state = {
@@ -189,11 +180,7 @@ def main():
 	# testF.close()
 
 
-# <<<<<<< HEAD
-def train(epoch, net, trainLoader, optimizer, criterion):
-# =======
-# def train(epoch, net, trainLoader, optimizer, criterion, viz):
-# >>>>>>> 3ec299bb8506decc223eb6d7d9579860b1a29c01
+def train(epoch, net, trainLoader, optimizer, criterion, use_cuda, visdom, viz):
 	print('\n==> Training Epoch %4d' % epoch)
 	net.train()
 	train_loss = 0
@@ -229,7 +216,7 @@ def train(epoch, net, trainLoader, optimizer, criterion):
 		print('Epoch %4d[%3d] -> loc_loss: %.3f conf_loss: %.3f ave_loss: %.3f'
 		      %(epoch, batch_idx, loc_loss.data[0], conf_loss.data[0], train_loss/(batch_idx+1)))
 
-	if args.visdom:
+	if visdom:
 		viz.line(
 			X=torch.ones((1, 3)).cpu() * epoch,
 			Y=torch.Tensor([train_loss_loc, train_loss_conf, train_loss]).unsequeeze(0).cpu() / (batch_idx+1),
@@ -237,7 +224,7 @@ def train(epoch, net, trainLoader, optimizer, criterion):
 			update='append'
 			)
 
-def test(epoch, net, testLoader, optimizer, criterion):
+def test(epoch, net, testLoader, optimizer, criterion, use_cuda, visdom, viz):
 	print('Testing')
 	net.eval()
 	test_loss = 0
@@ -263,7 +250,7 @@ def test(epoch, net, testLoader, optimizer, criterion):
 		print('loc_loss: %.3f conf_loss: %.3f ave_loss: %.3f'
 			  %(loc_loss.data[0], conf_loss.data[0], test_loss/(batch_idx+1)))
 
-	if args.visdom:
+	if visdom:
 		viz.line(
 			X=torch.ones((1, 3)).cpu() * epoch,
 			Y=torch.Tensor([test_loss_loc, test_loss_conf, test_loss]).unsequeeze(0).cpu() / (batch_idx+1),
